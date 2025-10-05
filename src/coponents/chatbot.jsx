@@ -21,6 +21,10 @@ const ChatBot = () => {
 
     // Hindi symptoms data
     const offlineSymptomsHindi = {
+        'योजना': {
+            info: 'हाँ ,जैसा कि ऐप के नवीनतम अपडेट और सरकारी योजनाओं के अनुभाग में लिखा गया है कि आयुष्मान भारत के अंतर्गत 70 वर्ष या उससे अधिक आयु के नागरिक, चाहे उनकी आर्थिक स्थिति कुछ भी हो, अब आयुष्मान वय वंदना कार्ड के माध्यम से 5 लाख रुपये तक के मुफ्त इलाज के लिए पात्र हैं।',
+            suggestions: ['अंधेरे कमरे में आराम करें', 'हाइड्रेटेड रहें', 'ठंडा सेक लगाएं', 'ओवर-द-काउंटर दर्द निवारक पर विचार करें']
+        },
         'सिरदर्द': {
             info: 'सिरदर्द तनाव, निर्जलीकरण, आंखों के तनाव या नींद की कमी के कारण हो सकता है। एक शांत, अंधेरे कमरे में आराम करने और हाइड्रेटेड रहने का प्रयास करें।',
             suggestions: ['अंधेरे कमरे में आराम करें', 'हाइड्रेटेड रहें', 'ठंडा सेक लगाएं', 'ओवर-द-काउंटर दर्द निवारक पर विचार करें']
@@ -162,7 +166,8 @@ const ChatBot = () => {
         for (const [symptom, data] of Object.entries(symptomsData)) {
             if (lowercaseInput.includes(symptom.toLowerCase()) ||
                 lowercaseInput.includes(symptom.toLowerCase().replace(' ', ''))) {
-                return { ...data, language }
+                // include the matched symptom key so callers can make symptom-specific decisions
+                return { symptom, ...data, language }
             }
         }
         return null
@@ -275,13 +280,22 @@ const ChatBot = () => {
                 const wikiData = await searchWikipedia(wikiQuery, language)
 
                 if (symptomMatch) {
-                    let response = language === 'hindi'
-                        ? `आपके लक्षणों के आधार पर, मुझे यह जानकारी मिली:\n\n${symptomMatch.info}\n\n`
-                        : `Based on your symptoms, here's what I found:\n\n${symptomMatch.info}\n\n`
+                        // If the matched symptom is the Hindi key 'योजना', omit the specific Hindi header line
+                        let response = ''
 
-                    response += language === 'hindi'
-                        ? `**सुझाव:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
-                        : `**Suggestions:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                        if (language === 'hindi') {
+                            if (symptomMatch.symptom === 'योजना') {
+                                // Do not include the "आपके लक्षणों के आधार पर..." header for योजना़
+                                response = `${symptomMatch.info}\n\n`
+                            } else {
+                                response = `आपके लक्षणों के आधार पर, मुझे यह जानकारी मिली:\n\n${symptomMatch.info}\n\n`
+                            }
+
+                            response += `**सुझाव:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                        } else {
+                            response = `Based on your symptoms, here's what I found:\n\n${symptomMatch.info}\n\n`
+                            response += `**Suggestions:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                        }
 
                     if (wikiData && wikiData.extract) {
                         response += language === 'hindi'
@@ -305,17 +319,23 @@ const ChatBot = () => {
 
             // Offline response
             if (symptomMatch) {
-                let response = language === 'hindi'
-                    ? `आपके लक्षणों के बारे में मेरी जानकारी:\n\n${symptomMatch.info}\n\n`
-                    : `Here's what I know about your symptoms:\n\n${symptomMatch.info}\n\n`
+                let response = ''
 
-                response += language === 'hindi'
-                    ? `**सुझाव:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
-                    : `**Suggestions:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                if (language === 'hindi') {
+                    if (symptomMatch.symptom === 'योजना') {
+                        // Omit the standard Hindi header for 'योजना'
+                        response = `${symptomMatch.info}\n\n`
+                    } else {
+                        response = `आपके लक्षणों के बारे में मेरी जानकारी:\n\n${symptomMatch.info}\n\n`
+                    }
 
-                response += language === 'hindi'
-                    ? `**नोट:** वर्तमान में ऑफलाइन - सीमित जानकारी उपलब्ध है।`
-                    : `**Note:** Currently offline - limited information available.`
+                    response += `**सुझाव:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                    response += `**नोट:** वर्तमान में ऑफलाइन - सीमित जानकारी उपलब्ध है।`
+                } else {
+                    response = `Here's what I know about your symptoms:\n\n${symptomMatch.info}\n\n`
+                    response += `**Suggestions:**\n${symptomMatch.suggestions.map(s => `• ${s}`).join('\n')}\n\n`
+                    response += `**Note:** Currently offline - limited information available.`
+                }
 
                 return response
             }
